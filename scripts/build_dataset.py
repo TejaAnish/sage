@@ -175,6 +175,10 @@ def finalize(args, api, repo):
                 if f.startswith("data/train-") and f.endswith(".parquet")}
     repo_files = set(api.list_repo_files(repo, repo_type="dataset"))
     missing = expected - {Path(f).name for f in repo_files if f.startswith("staging/")}
+    # --delete-staging removes staging/ only after every crop is published.
+    if missing and all(f"manifests/{crop_key}.json" in repo_files for crop_key in CROPS):
+        print(f"Already published: https://huggingface.co/datasets/{repo}", flush=True)
+        return
     if missing:
         raise SystemExit(f"{len(missing)} shards not fetched yet ({sorted(missing)[:3]}...). Run fetch first.")
 
