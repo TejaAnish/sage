@@ -309,11 +309,17 @@ def main():
     print(f"{batches_per_epoch} batches/epoch, {steps_per_epoch} optimizer steps/epoch; "
           f"budget {args.hours}h, training stops by {format_duration(train_deadline)}", flush=True)
 
+    def save_adapter(path):
+        model.save_pretrained(path)
+        # PEFT's auto-generated card has an empty base_model for local paths, and the Hub
+        # rejects any upload containing it. The final card is written after testing.
+        (Path(path) / "README.md").unlink(missing_ok=True)
+
     def save_checkpoint():
         """Write atomically so a session dying mid-save leaves the previous checkpoint intact."""
         temp = out / "last.tmp"
         shutil.rmtree(temp, ignore_errors=True)
-        model.save_pretrained(temp)
+        save_adapter(temp)
         torch.save({"optimizer": optimizer.state_dict(), "scaler": scaler.state_dict()}, temp / "optimizer.pt")
         state["elapsed_s"] = elapsed()
         write_json(temp / "training_state.json", {**state, "args": vars(args)})
@@ -427,7 +433,7 @@ def main():
         if improved:
             state["best_score"], state["epochs_since_best"] = score, 0
             shutil.rmtree(best, ignore_errors=True)
-            model.save_pretrained(best)
+            save_adapter(best)
             hub.push(best, "", f"Best adapter: epoch {state['epoch'] + 1}, balanced accuracy {score:.4f}")
         else:
             state["epochs_since_best"] += 1
