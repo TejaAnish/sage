@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+
+# Run outputs and caches
+outputs/
+build/
+adapters/
+wandb/
+.hf_cache/
+
+# Secrets and local tools
+.env
+.claude/
+
+# Model and dataset files belong on the Hub. The metadata index is the one exception.
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.parquet
+!metadata/sage_metadata.parquet
