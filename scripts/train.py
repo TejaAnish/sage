@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sage_train.kaggle_env import WORK, discover_model, setup_env, with_retries
+from sage_train.kaggle_env import WORK, discover_model, prepare_processor_files, setup_env, with_retries
 
 setup_env()
 
@@ -277,7 +277,8 @@ def main():
           f"classes={disease_names(crop)}", flush=True)
 
     model_path = discover_model(args.model_path)
-    processor = AutoProcessor.from_pretrained(model_path, min_pixels=args.min_pixels, max_pixels=args.max_pixels)
+    processor = AutoProcessor.from_pretrained(
+        prepare_processor_files(model_path, WORK / "processor_files", args.min_pixels, args.max_pixels))
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path, torch_dtype=torch.float16, device_map={"": 0}, attn_implementation="sdpa")
     model.config.use_cache = False

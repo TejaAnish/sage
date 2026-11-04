@@ -1,8 +1,10 @@
 """Kaggle paths, secrets and model discovery. Call setup_env() before importing HF libraries."""
 import json
 import os
+import shutil
 from pathlib import Path
 
+IMAGE_PROCESSOR_TYPE = "Qwen2VLImageProcessor"
 KAGGLE_INPUT = Path("/kaggle/input")
 WORK = Path("/kaggle/working") if Path("/kaggle/working").exists() else Path("outputs")
 
@@ -39,6 +41,29 @@ def discover_model(explicit=None):
                          f"{[str(p) for p in found]}. Attach one with 'Add Input', or pass --model-path.")
     print(f"Model: {found[0]}", flush=True)
     return str(found[0])
+
+
+def prepare_processor_files(model_path, dest, min_pixels, max_pixels):
+    """Copy the processor files to a writable folder with the image processor settings corrected.
+
+    Some Kaggle snapshots of Qwen2.5-VL name an image processor class that current transformers
+    no longer has, and /kaggle/input is read-only. Writing the pixel limits here also means
+    they can't be silently ignored at load time.
+    """
+    source, dest = Path(model_path), Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    for path in source.iterdir():
+        if path.is_file() and path.suffix not in {".safetensors", ".bin", ".pt", ".pth"}:
+            shutil.copy(path, dest / path.name)
+    config_path = dest / "preprocessor_config.json"
+    config = json.loads(config_path.read_text())
+    found = config.get("image_processor_type")
+    if found != IMAGE_PROCESSOR_TYPE:
+        print(f"Image processor type {found!r} replaced with {IMAGE_PROCESSOR_TYPE!r}", flush=True)
+    config.update(image_processor_type=IMAGE_PROCESSOR_TYPE, min_pixels=min_pixels, max_pixels=max_pixels,
+                  size={"shortest_edge": min_pixels, "longest_edge": max_pixels})
+    config_path.write_text(json.dumps(config, indent=2))
+    return str(dest)
 
 
 def with_retries(fn, what, attempts=6, wait=30):

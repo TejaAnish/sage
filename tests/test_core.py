@@ -1,6 +1,9 @@
 """Tests for logic that needs no ML libraries. Run: python -m unittest discover -s tests -v"""
+import contextlib
+import io
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +13,7 @@ import pandas as pd
 
 from sage_train.advisory import build_advisory_prompt, validate_advisory
 from sage_train.catalog import CROPS, disease_names, resolve_crop
+from sage_train.kaggle_env import prepare_processor_files
 from sage_train.metrics import classification_metrics
 from sage_train.prompts import build_messages, parse_prediction, user_prompt
 from sage_train.selection import assign_splits, cluster_hashes, deduplicate, row_key
@@ -138,6 +142,27 @@ class Selection(unittest.TestCase):
         capped = assign_splits(rows, 0.15, 0.15, 50, 10)
         self.assertEqual(capped.groupby(["label", "split"]).size().max(), 50)
         self.assertEqual(int((capped.split == "test").sum()), 20)
+
+
+class ProcessorFiles(unittest.TestCase):
+    def test_corrects_config_and_skips_weights(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "model"
+            source.mkdir()
+            (source / "preprocessor_config.json").write_text(json.dumps(
+                {"image_processor_type": "Qwen2_5_VLImageProcessor", "patch_size": 14}))
+            (source / "tokenizer.json").write_text("{}")
+            (source / "model.safetensors").write_text("weights")
+            original = (source / "preprocessor_config.json").read_text()
+            with contextlib.redirect_stdout(io.StringIO()):
+                dest = Path(prepare_processor_files(source, Path(tmp) / "out", 100, 200))
+            config = json.loads((dest / "preprocessor_config.json").read_text())
+            self.assertEqual(config["image_processor_type"], "Qwen2VLImageProcessor")
+            self.assertEqual(config["size"], {"shortest_edge": 100, "longest_edge": 200})
+            self.assertEqual(config["patch_size"], 14)
+            self.assertTrue((dest / "tokenizer.json").exists())
+            self.assertFalse((dest / "model.safetensors").exists())
+            self.assertEqual((source / "preprocessor_config.json").read_text(), original)
 
 
 class Advisory(unittest.TestCase):
