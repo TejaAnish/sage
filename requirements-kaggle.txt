@@ -4,6 +4,6 @@ accelerate==1.10.1
 datasets==4.1.1
 huggingface_hub==0.35.3
 safetensors
-pillow
+pillow<13
 pyarrow
 pandas
