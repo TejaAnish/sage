@@ -13,7 +13,7 @@ import pandas as pd
 
 from sage_train.advisory import build_advisory_prompt, validate_advisory
 from sage_train.catalog import CROPS, disease_names, resolve_crop
-from sage_train.kaggle_env import prepare_processor_files
+from sage_train.kaggle_env import check_versions, prepare_processor_files
 from sage_train.metrics import classification_metrics
 from sage_train.prompts import build_messages, parse_prediction, user_prompt
 from sage_train.selection import assign_splits, cluster_hashes, deduplicate, row_key
@@ -145,6 +145,17 @@ class Selection(unittest.TestCase):
 
 
 class ProcessorFiles(unittest.TestCase):
+    def test_version_check_names_wrong_packages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            requirements = Path(tmp) / "requirements.txt"
+            requirements.write_text(f"pandas=={pd.__version__}\npyarrow\n")
+            check_versions(requirements)
+            requirements.write_text("pandas==0.0.1\nno-such-package==1.0\n")
+            with self.assertRaises(SystemExit) as caught:
+                check_versions(requirements)
+            self.assertIn(f"pandas {pd.__version__} (needs 0.0.1)", str(caught.exception))
+            self.assertIn("no-such-package not installed (needs 1.0)", str(caught.exception))
+
     def test_corrects_config_and_skips_weights(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "model"

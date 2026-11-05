@@ -17,8 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from sage_train.kaggle_env import WORK, discover_model, prepare_processor_files, setup_env, with_retries
+from sage_train.kaggle_env import (WORK, check_versions, discover_model, prepare_processor_files, setup_env,
+                                   with_retries)
 
+check_versions(ROOT / "requirements-kaggle.txt")
 setup_env()
 
 import torch

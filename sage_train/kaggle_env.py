@@ -2,11 +2,34 @@
 import json
 import os
 import shutil
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 IMAGE_PROCESSOR_TYPE = "Qwen2VLImageProcessor"
 KAGGLE_INPUT = Path("/kaggle/input")
 WORK = Path("/kaggle/working") if Path("/kaggle/working").exists() else Path("outputs")
+
+
+def check_versions(requirements):
+    """Stop if the exact versions pinned in the requirements file aren't the ones installed.
+
+    A new Kaggle session resets packages to its defaults, and those can break loading or quietly
+    change training partway through a resumed run.
+    """
+    wrong = []
+    for line in Path(requirements).read_text().splitlines():
+        if "==" not in line:
+            continue
+        name, pinned = line.strip().split("==")
+        try:
+            found = version(name)
+        except PackageNotFoundError:
+            found = "not installed"
+        if found != pinned:
+            wrong.append(f"{name} {found} (needs {pinned})")
+    if wrong:
+        raise SystemExit("Wrong package versions: " + ", ".join(wrong) + ".\nA new Kaggle session resets packages. "
+                         "Run this first, then start again:\n  pip install -q -r requirements-kaggle.txt")
 
 
 def setup_env():
